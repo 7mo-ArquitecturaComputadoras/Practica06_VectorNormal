@@ -7,7 +7,7 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
+\usepackage[english]{babel}
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{listings}
@@ -170,7 +170,7 @@ El algoritmo se divide en dos etapas bien delimitadas:
 
 \begin{figure}[H]
     \centering
-    \resizebox{0.80\textwidth}{!}{%
+    \resizebox{0.6\textwidth}{!}{%
         \begin{tikzpicture}[
             node distance=1.1cm and 2.2cm,
             startstop/.style={rectangle, rounded corners, draw=black, fill=blue!15,
@@ -221,10 +221,6 @@ El algoritmo se divide en dos etapas bien delimitadas:
 
 \subsection{Programa principal — \texttt{main.cpp}}
 
-% [IMAGEN: Tomar captura del archivo main.cpp abierto en Visual Studio, mostrando
-%  el editor con resaltado de sintaxis. Guardar como "main_cpp_editor.png".
-%  Colocar esta imagen justo debajo del bloque de código lstlisting.]
-
 \begin{lstlisting}[language=CPP, caption={main.cpp -- Programa principal en C++}]
 // ============================================================
 // Autor: Edson Joel Carrera Avila
@@ -263,22 +259,7 @@ int main() {
 }
 \end{lstlisting}
 
-\begin{figure}[H]
-    \centering
-    % [IMAGEN: Captura del archivo main.cpp en el editor de Visual Studio 2022,
-    %  con el panel de Solution Explorer visible a la izquierda mostrando ambos
-    %  archivos (main.cpp y vectorNormal.asm) dentro del proyecto.
-    %  Guardar como "main_cpp_editor.png".]
-    %\includegraphics[width=0.95\textwidth]{main_cpp_editor.png}
-    \caption{Archivo \texttt{main.cpp} abierto en Visual Studio 2022 con el \textit{Solution Explorer} mostrando la estructura del proyecto.}
-    \label{fig:main_editor}
-\end{figure}
-
 \subsection{Módulo ensamblador — \texttt{vectorNormal.asm}}
-
-% [IMAGEN: Captura del archivo vectorNormal.asm en el editor de Visual Studio,
-%  mostrando el resaltado de palabras clave MASM (FLD, FMUL, FADDP, FSQRT, etc.).
-%  Guardar como "asm_editor.png".]
 
 \begin{lstlisting}[language=MASM, caption={vectorNormal.asm -- Función ensamblador x86}]
 ; ============================================================
@@ -329,16 +310,6 @@ vectorNormal ENDP
 
 END
 \end{lstlisting}
-
-\begin{figure}[H]
-    \centering
-    % [IMAGEN: Captura del archivo vectorNormal.asm en el editor de Visual Studio 2022,
-    %  haciendo zoom sobre las líneas del bucle (FLD, FMUL, FADDP) y la instrucción FSQRT.
-    %  Guardar como "asm_editor.png".]
-    %\includegraphics[width=0.95\textwidth]{asm_editor.png}
-    \caption{Archivo \texttt{vectorNormal.asm} en el editor de Visual Studio 2022, con las instrucciones FPU resaltadas.}
-    \label{fig:asm_editor}
-\end{figure}
 
 % ============================================================
 \section{Instrucciones x86 utilizadas}
@@ -457,41 +428,14 @@ La tabla siguiente muestra la evolución del acumulador iteración a iteración:
 
 \begin{figure}[H]
     \centering
-    % [IMAGEN: Captura de la ventana "Registers" de Visual Studio durante la depuración
-    %  (Debug > Windows > Registers), con un breakpoint activo DENTRO del bucle (línea FMUL).
-    %  Debe mostrar los registros ST0-ST7, con ST(0) conteniendo vec[i]^2 y ST(1) el
-    %  acumulador parcial; también debe ser visible ECX con su valor de cuenta regresiva.
-    %  Guardar como "fpu_registers_bucle.png".]
-    %\includegraphics[width=1\textwidth]{fpu_registers_bucle.png}
+    \includegraphics[width=0.85\textwidth]{fpu_registers_bucle.png}
     \caption{Ventana \textit{Registers} de Visual Studio: registros FPU \texttt{ST(0)}--\texttt{ST(7)} y \texttt{ECX} durante el bucle de acumulación de cuadrados.}
     \label{fig:fpu_registers}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    % [IMAGEN: Captura de la ventana "Registers" de Visual Studio con el breakpoint
-    %  colocado en la instrucción FSQRT (o inmediatamente después de ella), mostrando
-    %  ST(0) con el valor de la suma de cuadrados ANTES de la raíz (e.g. 25.0), o bien
-    %  ST(0) con la norma ya calculada (5.0) DESPUÉS de ejecutar FSQRT con F10.
-    %  Guardar como "fpu_registers_fsqrt.png".]
-    %\includegraphics[width=1\textwidth]{fpu_registers_fsqrt.png}
-    \caption{Ventana \textit{Registers} de Visual Studio: \texttt{ST(0)} antes y después de ejecutar \texttt{FSQRT}; se aprecia el cambio de la suma de cuadrados a la norma.}
-    \label{fig:fpu_fsqrt}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    % [IMAGEN: Captura de la ventana de consola (terminal) al ejecutar el programa
-    %  con el vector (3, 4, 0). Debe mostrar la secuencia completa:
-    %    "Ingresa la dimension del vector (N): 3"
-    %    "--- DATOS DEL VECTOR ---"
-    %    "Ingresa el valor para vec[0]: 3"
-    %    "Ingresa el valor para vec[1]: 4"
-    %    "Ingresa el valor para vec[2]: 0"
-    %    "----------------------------------------"
-    %    "Resultado de la Norma del Vector: 5.000000"
-    %  Guardar como "consola_ejecucion.png".]
-    %\includegraphics[width=0.85\textwidth]{consola_ejecucion.png}
+    \includegraphics[width=0.85\textwidth]{consola_ejecucion.png}
     \caption{Salida en consola del programa para $\vec{v}=(3,4,0)$: norma resultante igual a \texttt{5.000000}.}
     \label{fig:consola}
 \end{figure}
@@ -506,44 +450,9 @@ Para reforzar la precisión de punto flotante, se verifica con $\vec{v} = (1,\; 
 
 \begin{figure}[H]
     \centering
-    % [IMAGEN: Captura de la consola ejecutando el programa con el vector (1, 1, 1),
-    %  que produce "Resultado de la Norma del Vector: 1.732051". Esto demuestra que
-    %  la FPU maneja correctamente resultados irracionales con seis decimales de precisión.
-    %  Guardar como "consola_ejecucion_irracional.png".]
-    %\includegraphics[width=0.85\textwidth]{consola_ejecucion_irracional.png}
+    \includegraphics[width=0.85\textwidth]{consola_ejecucion_irracional.png}
     \caption{Salida en consola para $\vec{v}=(1,1,1)$: la FPU calcula correctamente la norma irracional $\sqrt{3} \approx 1.732051$.}
     \label{fig:consola2}
-\end{figure}
-
-% ============================================================
-\section{Configuración del proyecto en Visual Studio}
-
-El archivo \texttt{.vcxproj} habilita el ensamblador MASM de Microsoft mediante las extensiones de construcción \texttt{masm.props} y \texttt{masm.targets}. Esto permite que Visual Studio ensamble automáticamente el archivo \texttt{.asm} durante la compilación del proyecto, sin pasos manuales adicionales.
-
-\begin{figure}[H]
-    \centering
-    % [IMAGEN: Captura del panel "Build Customizations" de Visual Studio
-    %  (clic derecho en el proyecto > Build Dependencies > Build Customizations...),
-    %  con la casilla "masm(.targets, .props)" marcada con paloma. Esto evidencia que
-    %  el soporte MASM está habilitado correctamente en el proyecto.
-    %  Guardar como "build_customizations_masm.png".]
-    %\includegraphics[width=0.65\textwidth]{build_customizations_masm.png}
-    \caption{Ventana \textit{Build Customizations} de Visual Studio con la extensión \texttt{masm} habilitada; permite ensamblar archivos \texttt{.asm} como parte del proceso de construcción estándar.}
-    \label{fig:masm_build}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    % [IMAGEN: Captura de la ventana "Output" de Visual Studio (menú View > Output),
-    %  mostrando la salida del proceso de Build con los pasos:
-    %  1) Assembling vectorNormal.asm
-    %  2) Compiling main.cpp
-    %  3) Linking ...
-    %  4) Build succeeded.
-    %  Guardar como "build_output_exitoso.png".]
-    %\includegraphics[width=0.95\textwidth]{build_output_exitoso.png}
-    \caption{Ventana \textit{Output} de Visual Studio: proceso de construcción exitoso, mostrando el ensamblado de \texttt{vectorNormal.asm} y la compilación de \texttt{main.cpp}.}
-    \label{fig:build_output}
 \end{figure}
 
 % ============================================================
