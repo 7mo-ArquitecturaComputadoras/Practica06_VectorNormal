@@ -1,0 +1,569 @@
+% ============================================================
+% Reporte: Norma (Módulo) de un Vector en Ensamblador x86 con FPU
+% Autor: Edson Joel Carrera Avila
+% ============================================================
+
+\documentclass[12pt, letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm}
+
+% --- Colores y estilo de código ---
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\definecolor{codegreen}{rgb}{0.0,0.5,0.0}
+\definecolor{codeblue}{rgb}{0.0,0.0,0.65}
+\definecolor{codepurple}{rgb}{0.45,0.0,0.55}
+
+\lstdefinelanguage{MASM}{
+    morekeywords={PROC,ENDP,END,PUSH,POP,MOV,ADD,SUB,CALL,RET,JMP,
+                  JE,JB,JA,JLE,JNZ,DEC,INC,CMP,TEST,EXTERN,
+                  BYTE,DWORD,QWORD,PTR,
+                  EBP,ESP,ESI,EDI,ECX,EAX,AL,ST,
+                  FLD,FLDZ,FSTP,FXCH,FMUL,FADDP,FSQRT,
+                  .586,.model,.data,.code,flat,c},
+    sensitive=false,
+    morecomment=[l]{;}
+}
+
+\lstdefinelanguage{CPP}{
+    morekeywords={int,double,cout,cin,endl,using,namespace,std,extern,
+                  include,return,for,vector,data,fixed,setprecision,iomanip},
+    sensitive=true,
+    morecomment=[l]{//},
+    morestring=[b]"
+}
+
+\lstset{
+    backgroundcolor=\color{codegray},
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{codeblue}\bfseries,
+    commentstyle=\color{codegreen}\itshape,
+    numbers=left, numberstyle=\tiny\color{gray}, numbersep=8pt,
+    frame=single, rulecolor=\color{gray!50},
+    breaklines=true, captionpos=b, tabsize=4,
+    showstringspaces=false,
+    literate=
+        {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+        {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+        {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+}
+
+% --- Encabezado ---
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Práctica 06}
+\lhead{\textit{Edson Joel Carrera Avila}}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+% ============================================================
+\begin{document}
+
+% --- Portada ---
+\begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+
+    {\Large \textbf{Universidad Autónoma de la Ciudad de México}}\\[0.3cm]
+    {\large Licenciatura en Ingeniería de Software}\\[0.2cm]
+    {\large Arquitectura de Computadoras}\\[2.5cm]
+
+    \rule{\linewidth}{0.5pt}\\[0.4cm]
+    {\LARGE \bfseries Práctica 06}\\[0.3cm]
+    {\Large Norma (Módulo) de un Vector en Ensamblador x86}\\[0.3cm]
+    \rule{\linewidth}{0.5pt}\\[2cm]
+
+    \begin{flushleft}
+        \textbf{Alumno:} Edson Joel Carrera Avila \\[0.3cm]
+        \textbf{Grupo:} 302 \\[0.3cm]
+        \textbf{Profesor:} Prof. Mtro. Omar Nieto Crisóstomo \\[0.3cm]
+        \textbf{Fecha:} \today
+    \end{flushleft}
+    \vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introducción}
+
+Esta práctica consiste en implementar el cálculo de la \textbf{norma euclídea} (también llamada módulo o longitud) de un vector de números reales, utilizando \textbf{lenguaje ensamblador x86} con la \textbf{Unidad de Punto Flotante (FPU)}. La función ensamblador es invocada desde un programa principal escrito en \textbf{C++}, que se encarga de solicitar los datos al usuario y presentar el resultado con seis decimales de precisión.
+
+El objetivo va más allá de reproducir la operación aritmética: se busca comprender cómo la FPU acumula sumas de cuadrados en su pila interna, cómo se ejecuta una raíz cuadrada a nivel de hardware mediante la instrucción \texttt{FSQRT}, y cómo el procesador recorre un arreglo contiguo en memoria avanzando un puntero registro a registro.
+
+\subsection*{¿Qué es la norma de un vector?}
+
+Dado un vector $\vec{v} = (v_1, v_2, \ldots, v_N)$ de dimensión $N$, su \textbf{norma euclídea} (norma-2 o módulo) se define como:
+
+\begin{equation}
+    \|\vec{v}\| = \sqrt{\sum_{i=1}^{N} v_i^2} = \sqrt{v_1^2 + v_2^2 + \cdots + v_N^2}
+\end{equation}
+
+Geométricamente, la norma representa la \textbf{longitud del vector} en el espacio $n$-dimensional. Por ejemplo, para un vector de dimensión 3:
+
+\begin{equation}
+    \|(3,\; 4,\; 0)\| = \sqrt{3^2 + 4^2 + 0^2} = \sqrt{9 + 16} = \sqrt{25} = 5
+\end{equation}
+
+La norma siempre produce un \textbf{escalar no negativo}, y es igual a cero únicamente para el vector nulo.
+
+\subsection*{¿Cómo se representan los vectores en memoria?}
+
+En C++, un \texttt{vector<double>} almacena sus elementos de forma \textbf{contigua} en memoria. Cada elemento de tipo \texttt{double} ocupa \textbf{8 bytes} (64 bits, formato IEEE 754 de doble precisión). Si el primer elemento está en la dirección base $D$, los elementos sucesivos se encuentran en:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}ccc@{}}
+        \toprule
+        \textbf{Elemento} & \textbf{Dirección} & \textbf{Desplazamiento} \\
+        \midrule
+        \texttt{vec[0]} & $D$       & $+0$ bytes \\
+        \texttt{vec[1]} & $D + 8$   & $+8$ bytes \\
+        \texttt{vec[2]} & $D + 16$  & $+16$ bytes \\
+        \texttt{vec[i]} & $D + 8i$  & $+8i$ bytes \\
+        \bottomrule
+    \end{tabular}
+    \caption{Distribución en memoria de un arreglo de \texttt{double}}
+\end{table}
+
+El ensamblador recorre estos elementos avanzando el puntero \texttt{ESI} en 8 bytes por iteración con la instrucción \texttt{ADD ESI, 8}.
+
+% ============================================================
+\section{Organización del proyecto}
+
+El proyecto está configurado como una aplicación de consola Win32 en Visual Studio 2022 (conjunto de herramientas \texttt{v145}) e integra dos módulos que se enlazan en tiempo de compilación:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lp{9cm}@{}}
+        \toprule
+        \textbf{Archivo} & \textbf{Función} \\
+        \midrule
+        \texttt{vectorNormal.asm} & Implementa en ensamblador x86 la función \texttt{vectorNormal}, que recibe un puntero al vector y su dimensión $N$, acumula la suma de cuadrados en la pila FPU y devuelve la raíz cuadrada como \texttt{double} en \texttt{ST(0)}. \\
+        \texttt{main.cpp}          & Programa principal en C++ que solicita la dimensión y los elementos del vector al usuario, invoca la función ensamblador y muestra la norma con seis decimales de precisión. \\
+        \texttt{Practica06\_VectorNormal.vcxproj} & Proyecto de Visual Studio que habilita MASM (\texttt{masm.props} / \texttt{masm.targets}) para ensamblar el archivo \texttt{.asm} como parte del proceso de construcción normal. \\
+        \bottomrule
+    \end{tabular}
+    \caption{Archivos del proyecto}
+\end{table}
+
+La directiva \texttt{.model flat, c} y la declaración \texttt{extern "C"} en C++ garantizan la compatibilidad de nombres (sin \textit{name-mangling}) entre ambos módulos. El resultado \texttt{double} se retorna en \texttt{ST(0)} de la FPU, conforme a la convención de llamada \textit{cdecl} de x86.
+
+El algoritmo se divide en dos etapas bien delimitadas:
+
+\begin{figure}[H]
+    \centering
+    \resizebox{0.80\textwidth}{!}{%
+        \begin{tikzpicture}[
+            node distance=1.1cm and 2.2cm,
+            startstop/.style={rectangle, rounded corners, draw=black, fill=blue!15,
+                              minimum width=3.5cm, minimum height=0.8cm, align=center},
+            process/.style  ={rectangle, draw=black, fill=yellow!20,
+                              minimum width=3.5cm, minimum height=0.8cm, align=center},
+            decision/.style ={diamond, draw=black, fill=orange!25,
+                              minimum width=2.8cm, minimum height=0.8cm, align=center,
+                              aspect=2},
+            arrow/.style    ={-{Stealth[length=5pt]}, thick}
+        ]
+        % Nodos
+        \node[startstop] (inicio)   {Inicio\\(\texttt{vectorNormal})};
+        \node[process,   below=of inicio]  (prologo)  {Prólogo:\\PUSH EBP / MOV EBP,ESP\\PUSH ESI};
+        \node[process,   below=of prologo] (carga)    {Cargar parámetros:\\ESI $\leftarrow$ vec,\ ECX $\leftarrow$ N};
+        \node[process,   below=of carga]   (fldz)     {FLDZ: acumulador $\leftarrow$ 0.0};
+        \node[decision,  below=of fldz]    (guardaN)  {$N \leq 0$?};
+        \node[process,   right=of guardaN] (fin)      {FIN (retorna 0.0)};
+        \node[process,   below=of guardaN] (fld)      {FLD vec[i]\\(ST(0)=vec[i])};
+        \node[process,   below=of fld]     (fmul)     {FMUL ST(0),ST(0)\\(ST(0)=vec[i]\^{}2)};
+        \node[process,   below=of fmul]    (faddp)    {FADDP ST(1),ST(0)\\(acum+=vec[i]\^{}2)};
+        \node[process,   below=of faddp]   (avanza)   {ADD ESI,8 / DEC ECX};
+        \node[decision,  below=of avanza]  (jnz)      {ECX $\neq 0$?};
+        \node[process,   below=of jnz]     (fsqrt)    {FSQRT\\(ST(0)=\(\sqrt{\text{acum}}\))};
+        \node[startstop, below=of fsqrt]   (epilogo)  {Epílogo: POP ESI/EBP\\RET};
+
+        % Flechas
+        \draw[arrow] (inicio)  -- (prologo);
+        \draw[arrow] (prologo) -- (carga);
+        \draw[arrow] (carga)   -- (fldz);
+        \draw[arrow] (fldz)    -- (guardaN);
+        \draw[arrow] (guardaN) -- node[above]{\small Sí} (fin);
+        \draw[arrow] (guardaN) -- node[right]{\small No} (fld);
+        \draw[arrow] (fld)     -- (fmul);
+        \draw[arrow] (fmul)    -- (faddp);
+        \draw[arrow] (faddp)   -- (avanza);
+        \draw[arrow] (avanza)  -- (jnz);
+        \draw[arrow] (jnz.west) -- ++(-1.5,0) |- node[left, pos=0.25]{\small Sí} (fld.west);
+        \draw[arrow] (jnz)     -- node[right]{\small No} (fsqrt);
+        \draw[arrow] (fsqrt)   -- (epilogo);
+        \end{tikzpicture}
+    }
+    \caption{Diagrama de flujo del algoritmo \texttt{vectorNormal}}
+\end{figure}
+
+% ============================================================
+\section{Código fuente}
+
+\subsection{Programa principal — \texttt{main.cpp}}
+
+% [IMAGEN: Tomar captura del archivo main.cpp abierto en Visual Studio, mostrando
+%  el editor con resaltado de sintaxis. Guardar como "main_cpp_editor.png".
+%  Colocar esta imagen justo debajo del bloque de código lstlisting.]
+
+\begin{lstlisting}[language=CPP, caption={main.cpp -- Programa principal en C++}]
+// ============================================================
+// Autor: Edson Joel Carrera Avila
+// main.cpp
+// ============================================================
+
+#include <iostream>
+#include <iomanip>
+#include <vector>
+
+using namespace std;
+
+extern "C" double vectorNormal(double* vec, int N);
+
+int main() {
+    int n;
+
+    cout << "Ingresa la dimension del vector (N): ";
+    cin >> n;
+
+    vector<double> vec(n);
+
+    cout << "\n--- DATOS DEL VECTOR ---" << endl;
+    for (int i = 0; i < n; i++) {
+        cout << "Ingresa el valor para vec[" << i << "]: ";
+        cin >> vec[i];
+    }
+
+    double norma = vectorNormal(vec.data(), n);
+
+    cout << "\n----------------------------------------\n";
+    cout << "Resultado de la Norma del Vector: "
+         << fixed << setprecision(6) << norma << endl;
+
+    return 0;
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura del archivo main.cpp en el editor de Visual Studio 2022,
+    %  con el panel de Solution Explorer visible a la izquierda mostrando ambos
+    %  archivos (main.cpp y vectorNormal.asm) dentro del proyecto.
+    %  Guardar como "main_cpp_editor.png".]
+    %\includegraphics[width=0.95\textwidth]{main_cpp_editor.png}
+    \caption{Archivo \texttt{main.cpp} abierto en Visual Studio 2022 con el \textit{Solution Explorer} mostrando la estructura del proyecto.}
+    \label{fig:main_editor}
+\end{figure}
+
+\subsection{Módulo ensamblador — \texttt{vectorNormal.asm}}
+
+% [IMAGEN: Captura del archivo vectorNormal.asm en el editor de Visual Studio,
+%  mostrando el resaltado de palabras clave MASM (FLD, FMUL, FADDP, FSQRT, etc.).
+%  Guardar como "asm_editor.png".]
+
+\begin{lstlisting}[language=MASM, caption={vectorNormal.asm -- Función ensamblador x86}]
+; ============================================================
+; Autor: Edson Joel Carrera Avila
+; vectorNormal.asm
+; ============================================================
+
+.586
+.model flat, c
+
+; ============================================================
+; SECCIÓN DE CÓDIGO (.code)
+; ============================================================
+.code
+; --- Inicio del programa ---
+
+; Parámetros: [EBP+8]  = puntero a vec (double*)
+;             [EBP+12] = N (int)
+vectorNormal PROC
+    PUSH    EBP                     ; Guardamos el marco de pila actual
+    MOV     EBP, ESP                ; Establecemos el nuevo marco de pila
+    PUSH    ESI                     ; Preservamos ESI según la convención cdecl
+    MOV     ESI, [EBP+8]            ; ESI apunta al inicio de vec
+    MOV     ECX, [EBP+12]           ; ECX almacena la dimensión N (contador del ciclo)
+    FLDZ                            ; Cargamos 0.0 en la pila FPU. ST(0) = acumulador
+    TEST    ECX, ECX                ; Comparamos N con 0
+    JLE     fin                     ; Si N <= 0, saltamos al final (retorna 0.0)
+
+; --- Bucle de suma de cuadrados ---
+bucle:
+    FLD     QWORD PTR [ESI]         ; Cargamos vec[i] en ST(0). El acumulador baja a ST(1)
+    FMUL    ST(0), ST(0)            ; Multiplicamos ST(0) por sí mismo. ST(0) = vec[i]^2
+    FADDP   ST(1), ST(0)            ; Sumamos ST(0) al acumulador en ST(1) y desapilamos
+    ADD     ESI, 8                  ; Avanzamos 8 bytes en vec (tamaño de un double)
+    DEC     ECX                     ; Disminuimos el contador N
+    JNZ     bucle                   ; Si ECX no es 0, repetimos el ciclo
+
+; --- Raíz cuadrada ---
+    FSQRT                           ; ST(0) = sqrt(suma_cuadrados)
+
+; --- Fin del programa ---
+fin:
+    POP     ESI
+    MOV     ESP, EBP
+    POP     EBP
+    RET
+vectorNormal ENDP
+
+END
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura del archivo vectorNormal.asm en el editor de Visual Studio 2022,
+    %  haciendo zoom sobre las líneas del bucle (FLD, FMUL, FADDP) y la instrucción FSQRT.
+    %  Guardar como "asm_editor.png".]
+    %\includegraphics[width=0.95\textwidth]{asm_editor.png}
+    \caption{Archivo \texttt{vectorNormal.asm} en el editor de Visual Studio 2022, con las instrucciones FPU resaltadas.}
+    \label{fig:asm_editor}
+\end{figure}
+
+% ============================================================
+\section{Instrucciones x86 utilizadas}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}lp{9.5cm}@{}}
+        \toprule
+        \textbf{Instrucción} & \textbf{Qué hace} \\
+        \midrule
+        \texttt{PUSH / POP} & Coloca o retira un valor de 32 bits de la pila del sistema; se usan en el prólogo/epílogo y para preservar \texttt{ESI} según la convención \textit{cdecl}. \\
+        \texttt{MOV}    & Copia un valor entre registros o entre registro y memoria. \\
+        \texttt{ADD}    & Suma un valor inmediato a un registro; aquí avanza el puntero \texttt{ESI} en 8 bytes por iteración para acceder al siguiente \texttt{double}. \\
+        \texttt{DEC}    & Decrementa el operando en 1; actualiza las banderas del procesador, lo que permite a \texttt{JNZ} detectar el fin del bucle. \\
+        \texttt{TEST}   & Realiza una AND lógica sin guardar el resultado; solo actualiza las banderas para verificar si \texttt{ECX} es cero antes del primer ciclo. \\
+        \texttt{JLE}    & Salta si el resultado indica ``menor o igual'' (\textit{jump if less or equal}); protege el bucle cuando $N \leq 0$. \\
+        \texttt{JNZ}    & Salta si el resultado no es cero (\textit{jump if not zero}); mantiene el bucle mientras el contador \texttt{ECX} $\neq 0$. \\
+        \texttt{RET}    & Retorna al llamador (C++); el resultado \texttt{double} permanece en \texttt{ST(0)} de la FPU. \\
+        \texttt{FLDZ}   & Carga la constante 0.0 al tope de la pila FPU (\texttt{ST(0)}); inicializa el acumulador de la suma de cuadrados. \\
+        \texttt{FLD}    & Carga (\textit{push}) un valor \texttt{QWORD} (64 bits / \texttt{double}) desde memoria al tope de la pila FPU; desplaza \texttt{ST(0)} a \texttt{ST(1)}. \\
+        \texttt{FMUL}   & Multiplica \texttt{ST(0)} por el operando indicado; en este caso \texttt{ST(0),ST(0)} eleva al cuadrado el valor recién cargado. \\
+        \texttt{FADDP}  & Suma \texttt{ST(0)} a \texttt{ST(1)} y hace \textit{pop}; el acumulador queda actualizado en lo que era \texttt{ST(1)}, que pasa a ser el nuevo \texttt{ST(0)}. \\
+        \texttt{FSQRT}  & Calcula la raíz cuadrada del valor en \texttt{ST(0)} de forma \textbf{nativa en hardware} y almacena el resultado en el mismo registro; no requiere iteraciones por software. \\
+        \bottomrule
+    \end{tabular}
+    \caption{Instrucciones x86 y FPU utilizadas en \texttt{vectorNormal}}
+\end{table}
+
+% ============================================================
+\section{El rol de los registros}
+
+\subsection{Marco de pila y parámetros}
+
+Al momento en que C++ invoca \texttt{vectorNormal}, coloca los dos argumentos en la pila del sistema en orden inverso (de derecha a izquierda, convención \textit{cdecl}). Después del prólogo \texttt{PUSH EBP / MOV EBP, ESP}, el mapa de la pila queda:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}ccc@{}}
+        \toprule
+        \textbf{Dirección} & \textbf{Contenido} & \textbf{Tipo} \\
+        \midrule
+        \texttt{[EBP+12]} & \texttt{N}     & \texttt{int} (4 bytes) \\
+        \texttt{[EBP+8]}  & \texttt{vec}   & \texttt{double*} (4 bytes en x86) \\
+        \texttt{[EBP+4]}  & dirección de retorno & — \\
+        \texttt{[EBP+0]}  & EBP anterior   & — \\
+        \bottomrule
+    \end{tabular}
+    \caption{Mapa del marco de pila al inicio de \texttt{vectorNormal}}
+\end{table}
+
+A diferencia de la práctica anterior (producto punto con dos vectores), aquí solo se recibe \textbf{un puntero}, lo que simplifica el prólogo: únicamente es necesario preservar \texttt{ESI}, ya que \texttt{EDI} no se utiliza.
+
+\subsection{Registros del procesador}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}llp{7.5cm}@{}}
+        \toprule
+        \textbf{Registro} & \textbf{Rol} & \textbf{Descripción} \\
+        \midrule
+        \texttt{ESI} & Puntero al vector  & Apunta al elemento actual de \texttt{vec}; avanza 8 bytes por iteración para recorrer el arreglo contiguo en memoria. \\
+        \texttt{ECX} & Contador de ciclo  & Almacena $N$ e inicia la cuenta regresiva hasta 0; al llegar a cero, \texttt{JNZ} no salta y el bucle termina. \\
+        \texttt{ST(0)} & Tope de la pila FPU & Valor temporal: \texttt{vec[i]} recién cargado o su cuadrado; al terminar el bucle contiene la suma de cuadrados y después de \texttt{FSQRT} contiene la norma. \\
+        \texttt{ST(1)} & Segundo registro FPU & Acumulador: suma parcial de $v_i^2$; solo existe mientras hay un elemento cargado en \texttt{ST(0)}. \\
+        \bottomrule
+    \end{tabular}
+    \caption{Registros del procesador utilizados en \texttt{vectorNormal}}
+\end{table}
+
+\subsection{Estado de la pila FPU por instrucción}
+
+La pila FPU tiene profundidad máxima de 8 registros (\texttt{ST(0)}--\texttt{ST(7)}). En este algoritmo se utiliza una profundidad máxima de 2. La siguiente tabla muestra cómo evoluciona en las instrucciones clave del bucle:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}llll@{}}
+        \toprule
+        \textbf{Instrucción} & \textbf{ST(0)} & \textbf{ST(1)} & \textbf{Descripción} \\
+        \midrule
+        \texttt{FLDZ}              & 0.0         & vacío       & Inicializa el acumulador. \\
+        \texttt{FLD [ESI]}         & $v_i$       & acum        & Carga el elemento; el acumulador baja a \texttt{ST(1)}. \\
+        \texttt{FMUL ST(0),ST(0)}  & $v_i^2$     & acum        & Eleva al cuadrado sin mover la pila. \\
+        \texttt{FADDP ST(1),ST(0)} & acum$+v_i^2$  & vacío     & Suma y hace \textit{pop}; la pila vuelve a profundidad 1. \\
+        \texttt{FSQRT}             & $\sqrt{\text{acum}}$ & vacío & Raíz cuadrada en hardware; profundidad 1. \\
+        \bottomrule
+    \end{tabular}
+    \caption{Estado de la pila FPU durante la ejecución de \texttt{vectorNormal}}
+\end{table}
+
+% ============================================================
+\section{Ejemplo de ejecución}
+
+Para el vector $\vec{v} = (3,\; 4,\; 0)$, el cálculo esperado es:
+
+\begin{equation}
+    \|\vec{v}\| = \sqrt{3^2 + 4^2 + 0^2} = \sqrt{9 + 16 + 0} = \sqrt{25} = 5.000000
+\end{equation}
+
+La tabla siguiente muestra la evolución del acumulador iteración a iteración:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}ccccc@{}}
+        \toprule
+        \textbf{Iteración} & \textbf{vec[i]} & \textbf{vec[i]\textsuperscript{2}} & \textbf{Acumulador (ST)} & \textbf{ECX} \\
+        \midrule
+        0 (inicial) & —   & —    & 0.0                    & 3 \\
+        1           & 3.0 & 9.0  & $0 + 9 = 9.0$          & 2 \\
+        2           & 4.0 & 16.0 & $9 + 16 = 25.0$        & 1 \\
+        3           & 0.0 & 0.0  & $25 + 0 = 25.0$        & 0 \\
+        \texttt{FSQRT} & —   & —  & $\sqrt{25} = \mathbf{5.000000}$ & — \\
+        \bottomrule
+    \end{tabular}
+    \caption{Evolución del acumulador FPU para $\vec{v}=(3,4,0)$}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura de la ventana "Registers" de Visual Studio durante la depuración
+    %  (Debug > Windows > Registers), con un breakpoint activo DENTRO del bucle (línea FMUL).
+    %  Debe mostrar los registros ST0-ST7, con ST(0) conteniendo vec[i]^2 y ST(1) el
+    %  acumulador parcial; también debe ser visible ECX con su valor de cuenta regresiva.
+    %  Guardar como "fpu_registers_bucle.png".]
+    %\includegraphics[width=1\textwidth]{fpu_registers_bucle.png}
+    \caption{Ventana \textit{Registers} de Visual Studio: registros FPU \texttt{ST(0)}--\texttt{ST(7)} y \texttt{ECX} durante el bucle de acumulación de cuadrados.}
+    \label{fig:fpu_registers}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura de la ventana "Registers" de Visual Studio con el breakpoint
+    %  colocado en la instrucción FSQRT (o inmediatamente después de ella), mostrando
+    %  ST(0) con el valor de la suma de cuadrados ANTES de la raíz (e.g. 25.0), o bien
+    %  ST(0) con la norma ya calculada (5.0) DESPUÉS de ejecutar FSQRT con F10.
+    %  Guardar como "fpu_registers_fsqrt.png".]
+    %\includegraphics[width=1\textwidth]{fpu_registers_fsqrt.png}
+    \caption{Ventana \textit{Registers} de Visual Studio: \texttt{ST(0)} antes y después de ejecutar \texttt{FSQRT}; se aprecia el cambio de la suma de cuadrados a la norma.}
+    \label{fig:fpu_fsqrt}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura de la ventana de consola (terminal) al ejecutar el programa
+    %  con el vector (3, 4, 0). Debe mostrar la secuencia completa:
+    %    "Ingresa la dimension del vector (N): 3"
+    %    "--- DATOS DEL VECTOR ---"
+    %    "Ingresa el valor para vec[0]: 3"
+    %    "Ingresa el valor para vec[1]: 4"
+    %    "Ingresa el valor para vec[2]: 0"
+    %    "----------------------------------------"
+    %    "Resultado de la Norma del Vector: 5.000000"
+    %  Guardar como "consola_ejecucion.png".]
+    %\includegraphics[width=0.85\textwidth]{consola_ejecucion.png}
+    \caption{Salida en consola del programa para $\vec{v}=(3,4,0)$: norma resultante igual a \texttt{5.000000}.}
+    \label{fig:consola}
+\end{figure}
+
+\subsection{Segundo ejemplo: vector no entero}
+
+Para reforzar la precisión de punto flotante, se verifica con $\vec{v} = (1,\; 1,\; 1)$:
+
+\begin{equation}
+    \|(1,\; 1,\; 1)\| = \sqrt{1 + 1 + 1} = \sqrt{3} \approx 1.732051
+\end{equation}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura de la consola ejecutando el programa con el vector (1, 1, 1),
+    %  que produce "Resultado de la Norma del Vector: 1.732051". Esto demuestra que
+    %  la FPU maneja correctamente resultados irracionales con seis decimales de precisión.
+    %  Guardar como "consola_ejecucion_irracional.png".]
+    %\includegraphics[width=0.85\textwidth]{consola_ejecucion_irracional.png}
+    \caption{Salida en consola para $\vec{v}=(1,1,1)$: la FPU calcula correctamente la norma irracional $\sqrt{3} \approx 1.732051$.}
+    \label{fig:consola2}
+\end{figure}
+
+% ============================================================
+\section{Configuración del proyecto en Visual Studio}
+
+El archivo \texttt{.vcxproj} habilita el ensamblador MASM de Microsoft mediante las extensiones de construcción \texttt{masm.props} y \texttt{masm.targets}. Esto permite que Visual Studio ensamble automáticamente el archivo \texttt{.asm} durante la compilación del proyecto, sin pasos manuales adicionales.
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura del panel "Build Customizations" de Visual Studio
+    %  (clic derecho en el proyecto > Build Dependencies > Build Customizations...),
+    %  con la casilla "masm(.targets, .props)" marcada con paloma. Esto evidencia que
+    %  el soporte MASM está habilitado correctamente en el proyecto.
+    %  Guardar como "build_customizations_masm.png".]
+    %\includegraphics[width=0.65\textwidth]{build_customizations_masm.png}
+    \caption{Ventana \textit{Build Customizations} de Visual Studio con la extensión \texttt{masm} habilitada; permite ensamblar archivos \texttt{.asm} como parte del proceso de construcción estándar.}
+    \label{fig:masm_build}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % [IMAGEN: Captura de la ventana "Output" de Visual Studio (menú View > Output),
+    %  mostrando la salida del proceso de Build con los pasos:
+    %  1) Assembling vectorNormal.asm
+    %  2) Compiling main.cpp
+    %  3) Linking ...
+    %  4) Build succeeded.
+    %  Guardar como "build_output_exitoso.png".]
+    %\includegraphics[width=0.95\textwidth]{build_output_exitoso.png}
+    \caption{Ventana \textit{Output} de Visual Studio: proceso de construcción exitoso, mostrando el ensamblado de \texttt{vectorNormal.asm} y la compilación de \texttt{main.cpp}.}
+    \label{fig:build_output}
+\end{figure}
+
+% ============================================================
+\section{Repositorio GitHub}
+
+\url{https://github.com/7mo-ArquitecturaComputadoras/Practica06_VectorNormal}
+
+% ============================================================
+\section{Conclusiones}
+
+\begin{itemize}
+    \item La norma de un vector ilustra cómo el procesador puede ejecutar algoritmos matemáticos completos —incluyendo potenciación, acumulación y raíz cuadrada— \textbf{íntegramente mediante la FPU}, sin depender de bibliotecas de punto flotante de software. La instrucción \texttt{FSQRT} delega la operación directamente a hardware dedicado, lo que la hace eficiente y precisa.
+
+    \item El patrón \textbf{\texttt{FLD} → \texttt{FMUL ST(0),ST(0)} → \texttt{FADDP ST(1),ST(0)}} mantiene la pila FPU con profundidad máxima de 2 durante todo el bucle: un elemento para el valor al cuadrado y otro para el acumulador. Esta gestión cuidadosa evita desbordamientos de la pila de 8 niveles y resulta más eficiente que cargar y descargar el acumulador en cada iteración.
+
+    \item La diferencia respecto al \textbf{producto punto} (Práctica 05) pone de manifiesto la flexibilidad de la FPU: donde antes se necesitaban dos punteros (\texttt{ESI} y \texttt{EDI}) y una multiplicación cruzada entre vectores, aquí basta con \textbf{un solo puntero} y una auto-multiplicación (\texttt{FMUL ST(0),ST(0)}), demostrando que pequeñas variaciones en el algoritmo tienen un impacto directo en el número de registros utilizados.
+
+    \item La \textbf{verificación de $N \leq 0$} con \texttt{TEST} y \texttt{JLE} es indispensable: si se omitiera y se pasara un valor negativo, \texttt{DEC} / \texttt{JNZ} ejecutarían el bucle aproximadamente $2^{32}$ veces, leyendo memoria fuera del arreglo y produciendo resultados indefinidos o corrupción de datos.
+
+    \item Preservar únicamente \textbf{\texttt{ESI}} (y no \texttt{EDI}, que no se usa) muestra el principio de \textbf{mínima perturbación}: la convención \textit{cdecl} obliga a guardar los registros que se modifiquen, pero no los que permanecen intactos, reduciendo el número de operaciones de pila innecesarias.
+\end{itemize}
+
+\end{document}
